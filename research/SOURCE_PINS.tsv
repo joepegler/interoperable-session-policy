@@ -1,0 +1,17 @@
+# id	url	commit	path
+EIPS	https://github.com/ethereum/EIPs.git	dbfa6bee8329650969b95080f23f7059c015c2ba	references/eips
+ERCS	https://github.com/ethereum/ERCs.git	98469bc93b6add1e3bc9501dafaa73311071145b	references/ercs
+ERC8340_PR	https://github.com/ethereum/ERCs.git	e496579b121cf83232abecfa9d5fa88ead367174	references/ercs-8340-pr
+EXEC_SPECS_8141	https://github.com/ethereum/execution-specs.git	6798542ebd017b683b688489d770bf206c8bd3ba	references/execution-specs-8141
+EXEC_SPECS_8141_PR	https://github.com/ethereum/execution-specs.git	50bf605196f5b3de4cff074cd85e8addc9ef186b	references/execution-specs-8141-pr
+E8130	https://github.com/base/eip-8130.git	bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b	references/eip-8130
+VIEM_8130	https://github.com/chunter-cb/viem.git	24aa695819c535ca4eac941c34cf8614cc331b05	references/viem-eip-8130
+E8141_POC	https://github.com/sm-stack/eip8141-poc.git	fe02e01b21ed660c857a9fab5646e871cf886cd1	references/eip8141-poc
+SS_V1	https://github.com/erc7579/smartsessions.git	f5aaf867f7e22f3b9d746ce6f404f3a56833757f	references/smartsessions
+SS_V2	https://github.com/rhinestonewtf/smart-sessions-v2.git	bcf7ce653921a9dab5a79e30e4a85e403cdf24fe	references/smart-sessions-v2
+KERNEL	https://github.com/zerodevapp/kernel.git	f2a84a332ec5a722e7e95a0d64601905c3c87fe9	references/kernel
+KERNEL_PLUGINS	https://github.com/zerodevapp/kernel-7579-plugins.git	332deed6eeef3d6279cde50aa1d51eff53728bd4	references/kernel-7579-plugins
+MM_DELEGATION	https://github.com/MetaMask/delegation-framework.git	9e7fd80dc5a1f74bcb5efdff6aa91b228fb86411	references/delegation-framework
+MM_KIT	https://github.com/MetaMask/smart-accounts-kit.git	d042c145660acddd241d6eb9bc27ccab5249d2e9	references/metamask-smart-accounts-kit
+MM_7715_SNAP	https://github.com/MetaMask/snap-7715-permissions.git	bfa810be21d8d98ec123ebfde2848f9fc3bb8fdc	references/metamask-7715-snap
+BASE_POLICIES	https://github.com/base/account-policies.git	6a834cad1c529181b467b72dbc7efedd3b34a5e6	references/account-policies

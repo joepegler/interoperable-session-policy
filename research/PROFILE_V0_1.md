@@ -1,10 +1,12 @@
-# Candidate interoperable session profile v0.1
+# Provisional Interoperable Session Profile v0.1
 
 ## Status
 
-This is a research proposal for review, not an ERC draft, ABI, or deployable interface. `interop-session-baseline/1` and all policy names below are working identifiers. The profile deliberately specifies semantic requirements before choosing a Solidity layout or canonical wire codec.
+This file preserves a schema sketch from the first research pass for possible post-gate work. It predates the current review gate and is not an accepted profile, ERC draft, ABI, deployable interface, or current milestone deliverable. `interop-session-baseline/1` and all policy names below are working identifiers.
 
-The proposal is derived from the pinned evidence in [SOURCES.md](./SOURCES.md) and the mappings in [COMPARISON.md](./COMPARISON.md). The central recommendation is a stable semantic grant with implementation-specific bindings beneath it.
+Do not implement or freeze this schema before review of [STANDARDS-SHAPE.md](./STANDARDS-SHAPE.md), [FRAMEWORK-COMPARISON.md](./FRAMEWORK-COMPARISON.md), and [POLICY-CAPABILITY-UNION.md](./POLICY-CAPABILITY-UNION.md). In particular, native and ERC-20 totals are unresolved baseline candidates. The requirement to commit to the complete semantic grant is candidate baseline material, but the canonical codec, hash, domain, ordering, identifiers, discovery shape, and binding interfaces remain open.
+
+Where the retained sketch below says "baseline v1", "required", or "conformance", it describes the conditions of the earlier hypothesis if those elements are later selected. The classifications in `POLICY-CAPABILITY-UNION.md` govern the current review package.
 
 ## Objectives
 
@@ -12,8 +14,8 @@ The profile should let a dapp:
 
 1. create one restricted secp256k1 session key;
 2. request authority over one existing account on one chain without substituting another account or pool of funds;
-3. name exact target-and-selector pairs, value bounds, direct ERC-20 transfer bounds, recipients, and a finite validity window;
-4. receive the exact authority actually granted, including any wallet attenuation;
+3. name exact target-and-selector pairs and a finite validity window, with value and direct ERC-20 bounds available only if their unresolved semantics are promoted;
+4. receive the exact authority actually granted, accepting an adjustment only when that type has a decidable equal-or-narrower relation and otherwise treating the result as a counter-offer;
 5. exercise the grant through different account and transaction systems without changing its meaning; and
 6. rely on the root wallet/account to revoke a live grant.
 
@@ -31,7 +33,7 @@ Baseline v1 should not define:
 - gas sponsorship, paymaster selection, fee policy, or relayer trust;
 - message-signing permissions;
 - recurring or streaming allowances, general call counts, Boolean policy graphs, arbitrary calldata predicates, or cross-chain grants;
-- token approvals, permits, `transferFrom`, NFTs, indirect asset movement, or guarantees about a token's economic behavior; or
+- token approvals, permits, `transferFrom`, NFTs, indirect asset movement, or guarantees about a token's economic behaviour; or
 - atomic multi-permission negotiation through the ERC-7715 request array.
 
 Those capabilities remain in the observed union and can become typed extensions or separate profiles. Their exclusion is not a claim that they are unimportant.
@@ -62,7 +64,7 @@ SessionGrantV1 {
 
 The envelope describes authority. It contains no manager, module, entry point, paymaster, factory, `UserOperation`, frame, or ERC-7710 context. Those belong to a **binding** returned with the granted object.
 
-Each named policy above is shorthand for a typed entry `{ type, version, data }`. Type and version are committed fields, not hints inferred from the data shape or an evaluator address. Baseline canonicalization fixes the policy order and permits at most one entry of each baseline type.
+Each named policy above is shorthand for a typed entry `{ type, version, data }`. Type and version are committed fields, not hints inferred from the data shape or an evaluator address. Any later selected profile would need canonicalisation rules for policy ordering and multiplicity.
 
 Baseline v1 is single-account and single-chain. `chainId` is positive; `account` and `actor.value` are nonzero EVM addresses. `account` is the account whose authority is delegated; `actor.value` is the session-key address and is required to differ from `account`. A wallet may resolve an omitted account in a request, but a granted object always contains both an exact `chainId` and exact `account`.
 
@@ -72,13 +74,13 @@ Baseline v1 is single-account and single-chain. `chainId` is positive; `account`
 
 Every baseline implementation supports an actor identified by the Ethereum address derived from a secp256k1 public key. This is the strongest narrow mapping across EIP-8130's [K1 authenticator](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/Keystore.sol#L189-L224), Smart Sessions' typed validators and test K1 adapter, Kernel's [`ECDSASigner`](https://github.com/zerodevapp/kernel-7579-plugins/blob/332deed6eeef3d6279cde50aa1d51eff53728bd4/src/signers/ECDSASigner.sol), and MetaMask's address delegate; the underlying systems' validator or authenticator contracts remain binding-specific.
 
-Baseline v1 does not standardize passkeys, WebAuthn, multisignature actors, ERC-1271 actors, or opaque validator initialization data. Those require typed actor extensions rather than overloading an address with wallet-specific meaning.
+Baseline v1 does not standardise passkeys, WebAuthn, multisignature actors, ERC-1271 actors, or opaque validator initialisation data. Those require typed actor extensions rather than overloading an address with wallet-specific meaning.
 
-The authorization that creates a binding must prove that the root account approved both the semantic grant and the chosen enforcement integration. Possession of the session key alone must never install, widen, or replace its own grant.
+The authorisation that creates a binding must prove that the root account approved both the semantic grant and the chosen enforcement integration. Possession of the session key alone must never install, widen, or replace its own grant.
 
 ## Baseline policy types
 
-Support for all three types below is required for profile conformance. A particular zero-value grant need not contain both asset policies. Every included policy is required and enforceable; baseline has no advisory or silently ignorable entries.
+The earlier hypothesis proposed all three types below. The current review classifies exact action scope as a candidate mandatory baseline, while per-call native value, lifetime native value, and direct ERC-20 totals remain unresolved. The two asset sections are retained as concrete definitions to test, not current conformance requirements. No profile conformance claim exists at this stage.
 
 ### `call-scope/1`
 
@@ -93,6 +95,8 @@ CallScope {
 }
 ```
 
+`maxNativeValuePerCall` is part of the earlier hypothesis and remains unresolved. If it is not promoted, the mandatory exact-action subset permits zero native value only and a separately versioned extension must authorise value.
+
 Its semantics are:
 
 - A normal EVM `CALL` is eligible when its target matches one entry and either its first four calldata bytes equal one selector in that same entry or its calldata is empty and `allowEmptyCalldata` is true.
@@ -101,19 +105,19 @@ Its semantics are:
 - The call value must not exceed the matched entry's `maxNativeValuePerCall`. Zero means no native value, not unlimited value.
 - If several entries could match, canonical validation must yield the same effective maximum; the simplest v1 rule is to reject duplicate target-selector/empty-call alternatives.
 
-Pairing is security-critical. Independent target and selector lists could turn intended pairs `(A, x)` and `(B, y)` into four allowed actions. EIP-8130's [`CallScope`](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/SessionPolicy.sol#L77-L89) and Smart Sessions' hashed [`ActionData`](https://github.com/erc7579/smartsessions/blob/f5aaf867f7e22f3b9d746ce6f404f3a56833757f/contracts/lib/IdLib.sol#L13-L30) both support the paired model.
+Pairing is security-critical. Independent target and selector lists could turn intended pairs `(A, x)` and `(B, y)` into four allowed actions. EIP-8130's [`CallScope`](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/SessionPolicy.sol#L77-L89) and Smart Sessions' hashed [`ActionData`](https://github.com/erc7579/smartsessions/blob/f5aaf867f7e22f3b9d746ce6f404f3a56833757f/contracts/lib/IdLib.sol#L13-L30) support paired targets and selectors, but not the exact short-calldata rule above. The current EIP-8130 reference permits empty calldata for every explicit target scope, while Smart Sessions maps all calldata shorter than four bytes to one sentinel. Both need an adapter check to avoid widening (F-POLICY-08).
 
 An adapter must also reserve its own privilege-changing account, manager, validator, installation, and revocation paths. If a requested scope intersects one of those paths, the wallet rejects or attenuates the request before grant; it must not return a grant it knows it will interpret differently.
 
-### `native-value-total/1`
+### Unresolved sketch: `native-value-total/1`
 
 This policy contains one positive `maxAmount` for the whole grant lifetime. It is required whenever any call scope permits non-zero native value and absent otherwise.
 
 For every permitted call, the charged amount is the EVM call value. The adapter checks and consumes the amount before the external call so reentrancy cannot reuse the same capacity. Consumption rolls back only when the enclosing state transition reverts. Calls in a batch are evaluated in execution order against the aggregate counter.
 
-The total is deliberately not periodic or streaming. Those models differ on start anchors, partial periods, reset behavior, and unused capacity across EIP-8130, MetaMask, and Base Account Policies.
+The total is deliberately not periodic or streaming. Those models differ on start anchors, partial periods, reset behaviour, and unused capacity across EIP-8130, MetaMask, and Base Account Policies.
 
-### `erc20-transfer-total/1`
+### Unresolved sketch: `erc20-transfer-total/1`
 
 This policy contains one or more entries:
 
@@ -158,13 +162,13 @@ The OR is confined to alternatives inside `call-scope/1`; it is not a general Bo
 
 A direct token-transfer policy is applicable only to the exact direct call shape it defines. It does not inspect or certify arbitrary downstream token effects. This explicit applicability rule avoids presenting a partial decoder as a universal spending guard.
 
-Each stateful policy has one logical counter per `grantId`. Selecting another supported transport must not create fresh spending capacity. A wallet either returns one live enforcement binding or ensures that every route for the grant shares the same usage and revocation state.
+The retained hypothesis scopes each selected stateful policy counter to `grantId`. The exact counter-group model is not accepted: current frameworks scope counters to permissions, actions, delegation hashes, IDs, or policy configurations. Selecting another supported transport must not create fresh spending capacity. The current baseline projection therefore returns one live enforcement binding; multi-route exercise stays unresolved until every route demonstrably shares usage and revocation state.
 
 ## Requested versus granted authority
 
-The response always contains the complete canonical **granted** object. A wallet UI must compare it with the requested object and identify every change; it must not make the dapp reconstruct changes from opaque context.
+The response always contains the complete canonical **granted** object. A wallet UI must compare it with the requested object and identify every change; it must not make the dapp reconstruct changes from opaque context. No wider or substituted result is an attenuated success.
 
-If adjustment is disallowed, request and response are semantically identical after canonicalization, except that the wallet may fill an omitted `account`. If adjustment is allowed, the granted object is acceptable only when it is no broader under all of these rules:
+If adjustment is disallowed, request and response are semantically identical after canonicalisation, except that the wallet may fill an omitted `account`. If adjustment is allowed, the granted object is acceptable only when it is no broader under the retained rules below. This table is an earlier design hypothesis, not a completed partial order. Adjustment remains forbidden for any policy type or version whose relation has not been reviewed and made decidable:
 
 | Field | Permitted narrowing |
 | --- | --- |
@@ -191,11 +195,11 @@ The semantic grant needs a deterministic identifier of the following conceptual 
 grantId = HASH(domain || canonicalEncode(granted SessionGrantV1))
 ```
 
-The encoded preimage must bind the profile and policy versions, chain, account, actor, validity window, salt, policy contents, and collection ordering. It must distinguish absent fields from zero values and prevent alternate encodings of the same grant. Hash algorithm, canonical encoding, exact domain string, and extension encoding are deliberately not selected in this first pass; they are priority-zero decisions in [OPEN_QUESTIONS.md](./OPEN_QUESTIONS.md).
+The encoded preimage must bind the profile and policy versions, chain, account, actor, validity window, salt, policy contents, and collection ordering. It must distinguish absent fields from zero values and prevent alternate encodings of the same grant. Hash algorithm, canonical encoding, exact domain string, and extension encoding are deliberately not selected in this first pass; they remain deferred design questions in [OPEN_QUESTIONS.md](./OPEN_QUESTIONS.md).
 
-The semantic `grantId` should not include a transport, manager address, factory dependency, or opaque ERC-7710 context, because that would prevent the same meaning from being bound by different systems. Instead, root authorization must separately bind `grantId` to the selected manager/module/account integration and its replay domain. A portable semantic hash without binding-specific authorization would let an attacker route an approved grant through an unintended evaluator.
+The semantic `grantId` should not include a transport, manager address, factory dependency, or opaque ERC-7710 context, because that would prevent the same meaning from being bound by different systems. Instead, root authorisation must separately bind `grantId` to the selected manager/module/account integration and its replay domain. A portable semantic hash without binding-specific authorisation would let an attacker route an approved grant through an unintended evaluator.
 
-The current EIP-8130 reference manager's [commitment](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/PolicyManager.sol#L248-L271) is not this proposed grant identifier: it commits to account, policy contract, config hash, validity, and salt but not a named semantic profile. An adapter could nest `grantId` in its config or use a new binding, but equivalence must be specified and tested rather than assumed.
+The current EIP-8130 reference manager's [commitment](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/PolicyManager.sol#L248-L271) is not this proposed grant identifier: it commits to account, policy contract, config hash, validity, and salt but not a named semantic profile. Smart Sessions' `PermissionId` also omits the actions and policies ([F-POLICY-09](./FINDINGS.md#f-policy-09-smart-sessions-permission-ids-are-not-complete-semantic-grant-commitments)). An adapter could nest `grantId` in framework configuration or use a new binding, but equivalence must be specified and tested rather than assumed.
 
 ## Extension mechanism
 
@@ -203,7 +207,7 @@ The envelope may later carry typed policies outside the baseline. Every extensio
 
 - a stable, namespaced type identifier and explicit version;
 - one canonical encoding and semantic interpretation;
-- applicability, composition, evaluation order, state, and failure behavior;
+- applicability, composition, evaluation order, state, and failure behaviour;
 - a deterministic wallet-display schema;
 - a decidable attenuation relation, or a declaration that adjustment is forbidden;
 - security considerations and test vectors; and
@@ -211,11 +215,11 @@ The envelope may later carry typed policies outside the baseline. Every extensio
 
 Every policy included in a grant is required. Unknown type identifiers, unknown versions, malformed data, unsupported required profiles, and unsupported combinations fail closed during discovery/request validation, import, installation, validation, and redemption. No implementation may ignore an entry and still claim that it enforces the same grant.
 
-Wallet-specific types can use namespaces, but are not part of baseline conformance merely because they share the envelope. General OR, recurring allowance, streaming allowance, arbitrary argument predicates, redeemer identity, message signing, approvals, NFTs, and batch-shape policies are plausible first extensions from the union in [COMPARISON.md](./COMPARISON.md#observed-union-taxonomy).
+Wallet-specific types can use namespaces, but are not part of baseline conformance merely because they share the envelope. Target-only and fallback actions, recurring and streaming allowances, bounded usage, declared gas budgets, argument predicates, runtime witnesses, redeemer identity, message and claim signing, approval grant and revocation, NFT authority, exact batches, permission-use payment, and ownership transfer are extension candidates in [POLICY-CAPABILITY-UNION.md](./POLICY-CAPABILITY-UNION.md). Delegatecall, wildcard actors, named shared quota groups, and portable redelegation remain unresolved rather than implied extension support.
 
-## Rough ERC-7715 binding
+## ERC-7715 binding direction
 
-The least ambiguous ERC-7715 mapping is one permission entry containing the whole semantic grant, rather than several separately granted permissions whose atomicity and composition are unclear. This is a shape sketch only:
+The least ambiguous request mapping is one permission entry containing the semantic body, rather than several separately granted permissions whose atomicity and composition are unclear. Outer ERC-7715 fields are the only wire authorities for chain, account, and the address actor:
 
 ```text
 PermissionRequest {
@@ -225,78 +229,92 @@ PermissionRequest {
   permission: {
     type: "interop-session-grant"
     isAdjustmentAllowed: true | false
-    data: <requested SessionGrantV1 without a resolved account when `from` is omitted>
+    data: <requested semantic body without chain, account, or actor>
   }
-  rules: null
-}
-
-PermissionResponse {
-  ...request fields rewritten to contain the exact granted SessionGrantV1
-  context: <opaque binding/redemption and revocation handle>
-  dependencies: <binding-specific deployment dependencies>
-  delegationManager: <ERC-7710-compatible manager required by current ERC-7715>
+  rules: absent
+  responseBindings: <non-empty advertised type-version pairs>
 }
 ```
 
-The profile's restrictions remain inside the one typed permission; duplicating expiry, payee, or redeemer constraints as external ERC-7715 `rules` would create two sources of truth. The response's `context`, `dependencies`, and `delegationManager` are binding artifacts and are not hashed into the semantic grant. Because current ERC-7715 requires an ERC-7710 manager, a native EIP-8130 binding cannot use this response unchanged unless its manager is compatible or ERC-7715 evolves; this is an explicit open question, not an optional field.
+The session grant must be the sole request-array element until cross-entry atomicity is defined. `from` may be omitted for wallet selection in the request but is required in the response. The canonical full grant is reconstructed from `chainId`, resolved `from`, `to`, and the returned semantic body, so mismatched duplicates cannot compete.
 
-The binding needs a capability response that says at minimum: supported profile versions, actor types, extension type/versions, chains, and available enforcement bindings. ERC-7715's current permission-type discovery may carry the top-level permission name, but the exact nested-profile discovery format remains open.
+The current option 3 recommendation then distinguishes two response variants:
+
+```text
+PermissionResponse =
+  | LegacyERC7710PermissionResponse
+  | BoundPermissionResponse {
+      ...request fields rewritten to contain the exact granted object
+      from: <resolved account>
+      context: <wallet grant, exercise, and revocation handle>
+      binding: {
+        type: <advertised binding type>
+        version: <advertised binding version>
+        data: <binding-specific deployment, exercise, status, and revocation data>
+      }
+    }
+```
+
+The legacy response retains its current `context`, `dependencies`, `delegationManager`, and ERC-7710 redemption meaning. A bound response is mutually exclusive with that legacy variant and must not return dummy legacy fields. Its selected binding must be one exact pair negotiated in `responseBindings` and present in an advertised chain-profile-actor-extension-binding configuration. The profile's restrictions remain inside the one typed permission; duplicating expiry, payee, or redeemer constraints as external ERC-7715 `rules` would create two sources of truth. Neither legacy nor typed binding data is part of the semantic grant commitment.
+
+Discovery must advertise exact supported chain-profile-actor-extension-binding configurations before request time rather than independent lists that imply a Cartesian product. The current no-parameter list method is a separate compatibility blocker because it returns all live grants; option 3 needs a legacy-safe versioned or filtered listing path. The field-level straw man, normative behaviour, compatibility conditions, and versioned-successor fallback are in [STANDARDS-SHAPE.md](./STANDARDS-SHAPE.md).
 
 ## Exercise and revocation information
 
-The response or a separately discoverable binding descriptor must provide enough information to:
+The response's typed binding descriptor or an explicitly versioned wallet status method must provide enough information to:
 
 - reproduce and verify `grantId` from the exact granted object;
 - authenticate as the session actor;
 - identify the target chain and account;
 - select the manager/module/validator and account integration;
 - encode a single call or supported batch without changing its semantic interpretation;
-- supply any binding authorization proof, manager-specific context, nonce, or deployment dependency;
+- supply any binding authorisation proof, manager-specific context, nonce, or deployment dependency;
 - determine whether the final application call executes from `account`;
 - query active, expired, and revoked status; and
-- submit root-authorized revocation of this live binding.
+- submit root-authorised revocation of this live binding.
 
-A conforming revocation binding guarantees that the root wallet/account can disable a live grant without the session actor's cooperation and that, once the revocation state is effective on the target chain, every later validation attempt fails. Destroying the session key, revoking an unused installation signature, or hiding a grant from wallet UI is not sufficient. Bindings may expose different revocation ABIs and finality models, but the wallet must identify them and must not claim success before the binding's revocation condition is met.
+A conforming revocation binding guarantees that the root wallet/account can disable a live grant without the session actor's cooperation and that, once the revocation state is effective on the target chain, every later validation attempt fails. Destroying the session key, revoking an unused installation signature, or hiding a grant from wallet UI is not sufficient. Bindings may expose different revocation ABIs and finality models. The current ERC-7715 revoke result is internally inconsistent and has no status method ([F-7715-06](./FINDINGS.md#f-7715-06-revocation-result-and-status-semantics-are-internally-incomplete)), so pending, effective, failed, and finalised result semantics remain to be selected.
 
 ## Mapping to observed enforcement systems
 
 | Binding | Plausible mapping | Required caveat |
 | --- | --- | --- |
-| Native EIP-8130 | K1 actor with `POLICY` scope; manager/evaluator commits to and enforces the grant; protocol/account path dispatches approved calls. | The exact component that preserves account identity and whether a canonical manager is intended need confirmation. Current `SessionPolicy` is evidence, not an exact baseline implementation. |
+| Native EIP-8130 | K1 actor with `POLICY` scope; manager/evaluator commits to and enforces the grant; protocol/account path dispatches approved calls. | The protocol-to-manager leg preserves account identity. The reference manager then forwards through a separately authorised trusted executor; whether that two-actor construction is the normative binding needs confirmation. Current `SessionPolicy` is evidence, not an exact baseline implementation. |
 | Non-native EIP-8130 / ERC-4337 | Account hook consults Keystore or trusted manager; an adapter validates the same grant; account executes. | `executeFor` or a common ABI alone does not make arbitrary accounts trust the manager. |
-| EIP-7702 delegated EOA code | Delegated account code installs or trusts a baseline validator/manager and executes approved calls from the existing EOA address. | EIP-7702 sets account code but does not define the permission, counter, or live-grant revocation semantics. The chosen code and authorization lifecycle are binding data. |
-| Smart Sessions / ERC-7579 | Compile paired actions and intersecting policies into a session module; account executes. | The canonical grant, not Smart Sessions' narrower `PermissionId`, must be committed; unsupported selectors such as approvals remain excluded. |
+| EIP-7702 delegated EOA code | Delegated account code installs or trusts a baseline validator/manager and executes approved calls from the existing EOA address. | EIP-7702 sets account code but does not define the permission, counter, or live-grant revocation semantics. The chosen code and authorisation lifecycle are binding data. |
+| Smart Sessions / ERC-7579 | Compile paired actions and intersecting policies into a session module; account executes. | The canonical grant, not Smart Sessions' narrower `PermissionId`, must be committed. The baseline adapter rejects approval and other excluded action types even though v1 policies can decode some of them. V2 enable expiry is signed-config freshness rather than live-grant validity. |
 | Kernel | Install a baseline adapter plus the session signer; Kernel account executes. | Existing four-byte permission IDs and generic policy ABI do not encode the portable grant by themselves. |
 | MetaMask / ERC-7710 | Compile to exact execution/call and asset caveats; redeem through a manager that calls the delegator account. | Separate target and method caveats must not widen intended pairs; opaque ERC-7710 contexts are not the semantic object. |
-| EIP-8141 | Validator inspects every relevant `SENDER` frame and aggregate limits before approval; approved frames execute as the account. | Validation of only one frame could miss batch authority or total use. The binding must define frame selection and accounting. |
+| EIP-8141 | Validator constrains all subsequent `SENDER` frames before approval; approved frames execute as the account. | The current PoC checks one selected frame, discards returned timestamp bounds, and does not demonstrate nested dapp-action selector enforcement. Stateful totals need an aggregate read-only pre-check plus a later account hook, with mutation, rollback, reentrancy, and race rules. |
 
 ## Conformance boundary
 
-The following must remain identical across wallets claiming `interop-session-baseline/1`:
+A later accepted profile would require the following to remain identical across conforming wallets:
 
-- actor, account, chain, validity, call-scope, value, recipient, and direct-transfer meaning;
-- pairing, composition, applicability, counter charging, batch aggregation, and failure rules;
-- request-to-grant attenuation and complete response disclosure;
+- actor, account, chain, validity, and exact call-scope meaning;
+- pairing, composition, applicability, and failure rules;
+- if a value or asset capability is selected, that exact version's value, recipient, charging, batch, rollback, and failure meaning;
+- no implicit widening, complete response disclosure, and adjustment only under a selected type's decidable equal-or-narrower relation;
 - canonical semantic encoding and `grantId` once selected;
 - rejection of unknown or unsupported required content;
 - preservation of account execution identity where the binding claims it;
 - live root revocation and status semantics; and
-- the minimum wallet display: actor, account, chain, every target-selector pair, empty-call permission, per-call and cumulative native value, every token/recipient/cap, validity, and all request/grant differences.
+- the minimum wallet display: actor, account, chain, every target-selector pair, empty-call permission, validity, all request/grant differences, and every field of any selected value or asset capability.
 
 Wallets may vary:
 
 - transaction transport, relayer, bundler, and fee path;
 - account code, validator/authenticator, policy module, manager, and storage layout;
-- how the root authorization is signed and installed;
+- how the root authorisation is signed and installed;
 - ERC-7710 context, nonce, factory/deployment dependencies, and calldata packaging;
-- internal counter representation and gas optimization, provided observable semantics match; and
+- internal counter representation and gas optimisation, provided observable semantics match; and
 - additional explicitly requested, supported, and displayed extension policies.
 
-A wallet claiming baseline conformance must advertise support before the request, return the full granted semantic object, bind it to an actual enforcing integration, reject rather than ignore unsupported content, preserve the promised account execution identity, and offer root-controlled live revocation. Merely accepting a JSON shape or returning opaque executable bytes is not conformance.
+If a profile identifier is allocated after review, a wallet claiming conformance must advertise support before the request, return the full granted semantic object, bind it to an actual enforcing integration, reject rather than ignore unsupported content, preserve the promised account execution identity, and offer root-controlled live revocation. Merely accepting a JSON shape or returning opaque executable bytes is not conformance.
 
-## Recommendation
+## Current treatment
 
-1. **Smallest useful standard:** define the versioned semantic envelope, exact paired-call policy, finite validity, per-call and grant-lifetime native bounds, narrow direct ERC-20 transfer totals and recipients, deterministic commitment, narrowing-only grant adjustment, discovery, truthful account-execution binding, and live revocation requirements.
-2. **Keep outside:** universal execution/account ABIs, one mandatory manager, transport envelopes, gas policy, approvals and indirect asset guarantees, message signing, multi-chain grants, recurring/streaming accounting, general Boolean composition, arbitrary calldata programs, and wallet-specific lifecycle machinery.
-3. **One ERC or two:** one semantic-profile ERC with an ERC-7715 binding appears sufficient for the first proposal. If implementers also converge on a reusable onchain evaluator/manager ABI, specify that separately; its account trust and execution guarantees are a different standardization boundary and may require Core-EIP cooperation for native dispatch.
-4. **Next milestone:** ask Chris and implementers to resolve the priority-zero questions, then freeze the schema and codec in a small TypeScript package with canonical encode/decode/hash, attenuation, negative parsing cases, and cross-binding conformance vectors before drafting ERC text or Solidity.
+1. Preserve the one-chain address actor, replay-resistance, exact-action, finite-validity, complete-commitment, fail-closed, display, no-implicit-widening, account-originated-execution, one-live-binding, and live-revocation analysis as candidate semantic material.
+2. Treat native and direct ERC-20 limits as unresolved baseline candidates pending implementer agreement on observable accounting.
+3. Use a companion semantic ERC plus a narrow ERC-7715 binding generalisation as the current standards-shape recommendation, subject to author review.
+4. Resolve the first review gate before selecting a codec, commitment, identifier scheme, binding interface, TypeScript package, or Solidity artefact.

@@ -1,153 +1,165 @@
-# Prioritized open questions
+# Open Questions for Implementer Review
 
-## How to use this list
+## Status
 
-These are decisions, not missing research citations. **P0** blocks a stable semantic schema or a truthful EIP-8130 mapping. **P1** blocks an ERC structure and conformance claim. **P2** can be deferred from baseline v1 but should be recorded so the envelope does not foreclose it.
+These questions remain after the first evidence and standards-shape pass. They are grouped by the reviewer best placed to answer them. Recommendations in [`STANDARDS-SHAPE.md`](./STANDARDS-SHAPE.md) and [`POLICY-CAPABILITY-UNION.md`](./POLICY-CAPABILITY-UNION.md) remain provisional until the relevant answers are recorded.
 
-Each recommendation is a default for discussion, not a statement about an implementer's intent. Source revisions and links are in [SOURCES.md](./SOURCES.md); the consequences of each observed difference are in [COMPARISON.md](./COMPARISON.md).
+## Chris Hunter and EIP-8130 implementers
 
-## P0 — resolve before freezing the profile and codec
+### 1. Is the reference external-manager path intended as a standard binding?
 
-### 1. What executes an approved EIP-8130 policy action as the account?
+The current EIP specifies account-originated dispatch to the policy manager. The reference manager then calls the account, and `DefaultAccount` accepts it only when the manager is separately registered as a trusted executor.
 
-**Ask Chris:** In the intended native path, does protocol dispatch invoke the account, does the policy manager invoke an account execution function, or is another privileged executor planned? Which component guarantees that the final dapp sees `msg.sender == account`?
+Should a portable EIP-8130 binding require this two-actor construction, permit `manager == account` with policy-aware account code, or describe both as separate binding types?
 
-**Why it blocks:** The current draft gives a `POLICY` actor access only to its manager, while the reference manager and [`DefaultAccount`](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/accounts/DefaultAccount.sol#L63-L95) together demonstrate one execution path. An ordinary manager calling a dapp directly cannot preserve the account's caller identity.
+### 2. What is the intended non-native path?
 
-**Recommended default:** Keep the ERC semantic and require every binding to prove account-originated execution. Do not specify a canonical privileged executor without a Core-EIP guarantee.
+On a chain without native EIP-8130 transactions, should the same grant be exercised through EIP-7702 account code, an ERC-4337 hook, a manager's `executeFor` path, EIP-8141 validation, or several explicitly advertised bindings?
 
-### 2. How should the same grant execute without EIP-8130 transaction context?
+Which root-authorised account configuration makes each path trusted?
 
-**Ask Chris:** On a chain without native EIP-8130 transactions, is the intended route EIP-7702-delegated account code, an account-specific ERC-4337 hook, a Keystore-aware account method, the reference manager's `executeFor`, an EIP-8141 validator, or some combination? What exact account authorization makes the manager trusted?
+### 3. What should `policy_commitment` commit to?
 
-**Why it blocks:** [`executeFor`](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/PolicyManager.sol#L141-L192) can derive an external actor, but that alone does not make an arbitrary account execute the resulting call. The product claim must distinguish a portable grant from a portable account integration.
+Should it equal a transport-independent semantic grant ID, wrap that ID in manager-specific configuration, or retain the current reference commitment format?
 
-**Recommended default:** Define independent binding descriptors for native EIP-8130, EIP-7702/account-code, ERC-4337/account-module, and later EIP-8141 paths. Require semantic conformance across them; allow their authorization and calldata to differ.
+Which component binds the semantic grant to the chosen manager, account code, chain, and replay domain?
 
-### 3. Is the current `PolicyManager` mandatory, or merely one reference binding?
+### 4. Is `SessionPolicy` standards input or only an example?
 
-**Ask Chris:** Should baseline implementations use the current manager bytecode/address and `PolicyBinding`, implement a standard external validation/execution interface, or only satisfy behavioral conformance? Is a canonical manager or precompile actually planned?
+Which behaviours are intentional common candidates: paired call scopes, empty-selector wildcard, native and ERC-20 accounting, recipients, approvals, `transferFrom`, periods, self-call rejection, and commitment-keyed state?
 
-**Why it blocks:** The current [`PolicyManager`](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/PolicyManager.sol#L20-L271) combines one commitment format, one policy hook ABI, native transaction context, `executeFor`, and account dispatch assumptions. Mandating it would move implementation-specific choices into the semantic profile.
+The current recommendation uses it as evidence and does not copy its ABI.
 
-**Recommended default:** Require semantics and a small binding descriptor first. Treat the current manager as a reference implementation. Standardize an onchain interface separately only if at least two account systems can implement the same caller, revocation, and failure guarantees.
+### 5. What role, if any, should ERC-8340 have?
 
-### 4. Is `SessionPolicy` intended to seed a standard or only illustrate extensibility?
+Was ERC-8340 shared as a companion-ERC layering precedent, or should session permissions investigate reuse of deterministic CBOR or commitment machinery?
 
-**Ask Chris:** Which details are intentional candidates for common semantics: paired call scopes, an empty-selector wildcard, native/ERC-20 accounting, recipients, `transferFrom`, approvals, periods, self-call rejection, and state keyed by commitment?
+Any reuse needs distinct authority-domain separation and must not make descriptive metadata authoritative.
 
-**Why it blocks:** The reference [`SessionPolicy`](https://github.com/base/eip-8130/blob/bc41a9715d0eecc3fdd27a6d9ed422aa4a151f7b/src/policies/SessionPolicy.sol#L10-L104) is the richest direct EIP-8130 evidence, but some of its selector and approval behavior is too broad or ambiguous for a universal wallet display. A copied struct would silently inherit those choices.
+## ERC-7715 and ERC-7710 authors
 
-**Recommended default:** Treat it as evidence, not the baseline ABI. Retain exact paired scopes and grant-lifetime accounting; remove wildcards, approvals, `transferFrom`, and recurrence from baseline v1.
+### 6. Can request and listing paths both preserve legacy clients?
 
-### 5. What exactly is the canonical commitment?
+Can the existing ERC-7710 response remain unchanged while an explicitly negotiated permission type returns `{ context, binding: { type, version, data } }` instead of dummy `dependencies` and `delegationManager` fields?
 
-**Ask Chris:** Should EIP-8130's `policy_commitment` equal the transport-independent `grantId`, wrap it in a manager-specific commitment, or commit directly to manager configuration? Which hash, domain, versioning, collection order, and canonical encoding should be used? Should any ERC-8340 CBOR machinery be reused?
+The no-parameter list method currently returns all live grants, so an old client could still receive the new variant. Should bound grants use a new list method, a response-version/filter parameter with a legacy default, or a successor ERC?
 
-**Why it blocks:** EIP-8130 stores an opaque commitment. The reference manager hashes account, evaluator/config, validity, and salt, while Smart Sessions and MetaMask use different typed hashes. ERC-8340 is a useful deterministic-encoding precedent, but its metadata is non-authoritative and security semantics differ.
+### 7. Should `context` remain the common revocation handle?
 
-**Recommended default:** Define `grantId` as a domain-separated hash of only the canonical semantic grant, then bind `grantId` separately to the selected manager/account integration in the root authorization. Compare EIP-712-style encoding and deterministic CBOR using test vectors before choosing; do not reuse metadata commitments by implication.
+May a non-ERC-7710 binding use `context` as its wallet grant identifier and opaque proof while returning all effective semantic authority in structured `permission.data`?
 
-### 6. Is the proposed direct-asset subset useful enough for every baseline wallet?
+Which part of `context` must remain stable across listing, exercise, and revocation?
 
-**Ask Chris and account implementers:** Will Coinbase, MetaMask, Smart Sessions, and Kernel implementations commit to exact target-selector pairs, per-call and cumulative native value, and grant-lifetime direct ERC-20 `transfer` totals with recipient sets? Does any implementation need approval, `transferFrom`, period, or indirect dapp spending in the mandatory profile?
+### 8. How should nested capabilities be discovered?
 
-**Why it blocks:** All systems can approximate value limits, but their tracked selectors, balance checks, period semantics, and recipients differ. The profile cannot safely label these all as one generic "spending limit."
+Should the existing per-permission discovery value gain an array of exact chain-profile-actor-extension-binding configurations, or should companion permission types own one namespaced capabilities field?
 
-**Recommended default:** Make native value and direct `transfer(address,uint256)` support mandatory capabilities, but require them in a grant only when used. Charge decoded/requested amounts. Put approvals, `transferFrom`, balance-delta guarantees, periodic/streaming limits, and indirect movement in extensions.
+Discovery must distinguish parsing support from a complete enforceable binding on each chain without implying unsupported Cartesian products.
 
-### 7. Are the composition and attenuation rules acceptable?
+### 9. May a permission type narrow `isAdjustmentAllowed`?
 
-**Ask Chris and implementers:** Is the baseline model acceptable: one call-scope policy with OR across exact paired alternatives, AND across the selected scope and all applicable limits, and wallet adjustment limited to a formally defined narrowing relation?
+Can the session permission define adjustment strictly as equal-or-narrower even though current ERC-7715 wording includes increases?
 
-**Why it blocks:** Smart Sessions selects alternative action pairs and intersects their policies; Kernel intersects policies and signer; MetaMask intersects caveats but also has an explicit OR wrapper. A blanket "all policy entries pass" is insufficient unless applicability and internal alternatives are defined.
+A wider or substituted result would be a separately approved counter-offer, not attenuation.
 
-**Recommended default:** Adopt the restricted model in [PROFILE_V0_1.md](./PROFILE_V0_1.md#composition-and-evaluation). Exclude general Boolean graphs. Treat an increase or substitution as a new request, even though current ERC-7715 wording describes adjustment more broadly.
+### 10. When may wallet revocation report success?
 
-### 8. What constitutes revoking a live grant?
+The current section says success returns an empty response, but its schema returns `chainIds`, and no status method exists. Should the session permission wait for binding-specific effectiveness, return pending plus status, or identify a binding-specific status query?
 
-**Ask Chris:** For native and non-native EIP-8130 paths, which root-authorized state change disables an already usable grant, and when may the wallet report it revoked? Does revoking the actor always invalidate every manager binding and cached authorization derived from it? If one grant is exercisable through multiple transports, where do they share revocation and spending state?
+How should pending, effective, failed, and finalised states be represented without treating local wallet removal as onchain revocation?
 
-**Why it blocks:** EIP-8130 deletes actor configuration; Smart Sessions distinguishes removing a live session from revoking an unused enable signature; MetaMask disables a delegation hash; Kernel and Base uninstall stored policy state. These operations do not have identical propagation or identity.
+### 11. Must one session grant be negotiated atomically?
 
-**Recommended default:** Require a binding-specific root operation that makes every later use of the live `grantId` fail once effective onchain. One `grantId` has one logical counter and revocation state: either expose one live binding or make every route share state. Report nonce cancellation, key deletion, expiry, and live revocation as separate states.
+The current request accepts an array of permission requests but does not define cross-entry composition or all-or-none approval. Is one complete session grant as the sole array element, with no external `rules`, acceptable as the v1 rule?
 
-## P1 — resolve before drafting an ERC
+## Wallet and account-framework implementers
 
-### 9. Must one baseline grant be negotiated atomically?
+### 12. Is the candidate non-asset baseline implementable across stacks?
 
-**Ask Chris and ERC-7715 implementers:** Should exact calls, value limits, token limits, expiry, and actor be one indivisible permission object? If multiple entries are sent in an ERC-7715 request array, must the wallet grant all or none, and are their policies intended to compose?
+Can Coinbase, MetaMask, Smart Sessions, Kernel, and other wallets implement one-chain account and address-actor binding, replay resistance, finite validity, exact target-selector and explicit empty-calldata actions, commitment to the complete semantic grant, exact grant return, complete display, fail-closed versions, no implicit widening, account-originated execution, one selected live binding, and live root revocation with identical meaning?
 
-**Why it blocks:** The profile needs one authority and one attenuation comparison. The inspected systems atomically enforce related constraints inside one binding, but the current wallet RPC accepts arrays of permission requests without supplying the semantic composition model needed here.
+Which field is infeasible or needs to move to a binding?
 
-**Recommended default:** Carry the entire baseline grant in one new ERC-7715 permission type. Treat request-array atomicity and cross-permission composition as outside this profile until ERC-7715 defines them explicitly.
+### 13. Which asset limit, if any, belongs in the mandatory baseline?
 
-### 10. Is ERC-7715 the normative wallet binding or one optional transport?
+Can all intended implementations agree on:
 
-**Ask Chris:** Should a wallet claim baseline conformance only through ERC-7715 request/list/revoke methods, or may another RPC carry the same canonical object? How should the profile handle ERC-7715's manager and ERC-4337 deployment fields while remaining transport-independent?
+- per-call native value;
+- grant-lifetime native total;
+- direct `transfer(address,uint256)` requested-amount totals;
+- recipient sets;
+- pre-call mutation and reentrancy handling;
+- rollback and false-return behaviour; and
+- aggregate batch accounting and the distinction between declared amount and observed balance delta?
 
-**Why it blocks:** ERC-7715 is the closest dapp-facing surface, but its current [`PermissionResponse`](https://github.com/ethereum/ERCs/blob/98469bc93b6add1e3bc9501dafaa73311071145b/ERCS/erc-7715.md#request-specification) requires `context`, `dependencies`, and `delegationManager`. Those are binding artifacts, not semantic fields.
+If not, which definitions should be typed extensions rather than mandatory support?
 
-**Recommended default:** Make the semantic object independently canonical and define a normative ERC-7715 mapping for wallet interoperability. Other request transports may conform if they return exactly the same grant and binding guarantees.
+### 14. Can one semantic grant expose more than one live binding?
 
-### 11. Is ERC-7710 compatible with the intended manager path?
+How would EIP-8130, ERC-4337, EIP-8141, and ERC-7710 paths share one usage counter and live revocation state rather than multiplying capacity?
 
-**Ask Chris and ERC-7710 implementers:** Should an EIP-8130 manager implement `redeemDelegations`, can its permission context carry an EIP-8130 binding without changing actor identity, and can its required atomic batch behavior coexist with native/account-specific execution paths?
+Until this is demonstrated, the current recommendation is one live binding per grant ID.
 
-**Why it blocks:** ERC-7710 standardizes only `redeemDelegations(bytes[],bytes32[],bytes[])`; contexts and account invocation remain manager-specific. The EIP-8130 reference manager exposes different entry points, and EIP-8130's multi-account helper has different failure behavior.
+### 15. What exactly does full conformance claim?
 
-**Recommended default:** Treat ERC-7710 as an optional redemption binding. Require a round-trip conformance vector proving identical grant checks and account-originated calls before claiming compatibility; do not make ERC-7710 context the canonical grant.
+Should conformance require exact tuple discovery, complete semantic commitment, request and grant presentation, no implicit widening, exact enforcement, replay resistance, account-originated execution, status, and live revocation?
 
-### 12. How are profiles and extension types advertised and governed?
+Would separately named request-only and enforcement-adapter attestations be useful without allowing either to claim full profile support?
 
-**Ask Chris and wallet implementers:** What discovery response should state support for `interop-session-baseline/1`, actor types, exact extension versions, chains, and bindings? Who allocates policy identifiers, and how are incompatible semantic revisions prevented from reusing a name?
+### 16. How should implementation upgrades affect conformance?
 
-**Why it blocks:** ERC-7715 discovers permission and rule types, while MetaMask's SDK has concrete schemas and every onchain framework allows arbitrary module/enforcer addresses. None supplies an ecosystem-wide nested profile/type registry.
+Can a wallet claim a fixed semantic version when an evaluator, module, manager, or account implementation is upgradeable?
 
-**Recommended default:** Discovery must enumerate exact profile and policy type/version pairs before grant time. Use namespaced provisional identifiers until an ERC defines stable identifiers and change control. Unknown required content always fails closed.
+Should binding discovery commit to code identity, an implementation version, or only observable conformance vectors and governance assumptions?
 
-### 13. What exact guarantees accompany a conformance claim?
+Can framework routing identifiers remain stable when policy content changes? In particular, Smart Sessions `PermissionId` omits actions and policies, and v2 enable expiry is signed-config freshness rather than runtime validity. Which separate binding fields and checks prove the complete committed meaning and live validity?
 
-**Ask all implementers:** Is support a claim about parsing, wallet display, request handling, onchain enforcement, account-originated execution, revocation, or all of them? How will a dapp distinguish partial support?
+## EIP-8141 and ERC-8286 implementers
 
-**Why it blocks:** Every surveyed stack separates wallet SDK, semantic configuration, policy evaluator, account integration, and transaction transport differently. A single Boolean that only means "accepted the JSON" would reproduce opaque wallet-specific permissions.
+### 17. What complete frame set must a session validator inspect?
 
-**Recommended default:** Full baseline conformance requires discovery, complete request/grant disclosure, exact semantic enforcement, unknown-type rejection, account-identity preservation, status, and live root revocation. If useful, define separately named request-only and enforcement-adapter test attestations, but neither alone should claim full profile support.
+Must the validator reject every later `SENDER` frame not routed through the policy-consuming account entry point, including direct sender frames targeting another contract?
 
-### 14. Should an onchain interface be a separate ERC?
+How should it account for sender frames before or after account-targeted frames and unsupported frame modes?
 
-**Ask Chris:** Does the first proposal need only the semantic profile plus bindings, or does adoption require one manager validation/execution ABI immediately?
+### 18. Where should stateful limits be consumed?
 
-**Why it blocks:** Semantics and wallet display can be common while trusted account execution remains EIP-8130-, ERC-7579-, Kernel-, or delegator-specific. Coupling them could delay the useful layer or imply caller privileges an ERC cannot create.
+If `VERIFY` performs read-only checks and a later `SENDER` account hook mutates counters, how are aggregate pre-check, mutation order, reentrancy, rollback, and best-effort execution defined?
 
-**Recommended default:** Start with one semantic-profile ERC and its ERC-7715/EIP-8130 mapping. Pursue a separate manager/evaluator-interface ERC only after two independent integrations prove the interface and caller semantics.
+How are mempool races between two individually valid transactions handled?
 
-### 15. What must an EIP-8141 adapter inspect before approval?
+### 19. What existing-EOA installation is required?
 
-**Ask EIP-8141/ERC-8286 implementers:** Must a baseline validator inspect all `SENDER` frames and aggregate value/token counters before `APPROVE`, and how are unsupported frame modes rejected?
+For an EIP-7702 delegated EOA, what root-authorised code and module installation makes the session validator active, and how is it removed without allowing an old grant to revive when code is later reinstalled?
 
-**Why it blocks:** Once an EIP-8141 transaction is approved, relevant frames can execute as the account. Per-frame checks against the same pre-transaction counter can undercount a batch.
+### 20. Which implementation revision should reviewers use?
 
-**Recommended default:** Validate all account-originated frames, call shapes, and aggregate limits before approval; reject unrecognized modes. Specify this in an EIP-8141 binding, not the semantic envelope.
+The current EIP, execution-specs branch, and PoC differ materially. When is the execution-specs branch stable enough to support binding test vectors, and which PoC behaviours should be retired?
 
-## P2 — preserve as explicit extension work
+## Deferred design questions
 
-### 16. Which batch semantics deserve a typed policy?
+### 21. What canonical codec and commitment should be selected?
 
-Should the union define exact ordered batches, unordered action sets, atomic batches, and best-effort batches as separate types? **Default:** baseline authorizes each call and aggregates stateful limits in execution order, while the binding truthfully reports actual atomicity. Do not claim a universal batch permission yet.
+Compare EIP-712-style encoding, deterministic CBOR, and another compact canonical form only after the standards boundary and policy vocabulary are reviewed.
 
-### 17. What is the next actor and chain-scope profile?
+### 22. How are type identifiers and versions governed?
 
-Should WebAuthn/ERC-1271/module actors and multichain grants share one envelope extension or require new profiles? **Default:** keep baseline to a K1-address actor on one EIP-155 chain; design actor and multichain replay domains only with cross-wallet test vectors.
+Determine collision resistance, namespacing, incompatible-version rules, registration, and extension change control before formal ERC drafting.
 
-### 18. Which accounting model should extensions standardize first?
+### 23. Which advanced capabilities should be standardised first?
 
-Should recurring allowances, streams, call counts, attempted-versus-successful consumption, and balance-delta policies use stored counters, stateless proofs, or either? **Default:** define observable state transitions and rollback behavior per type, not a storage mechanism. Start with recurring allowance only after comparing period boundaries across EIP-8130, MetaMask, and Base.
+Candidate extensions now include target-only and fallback actions, periodic and streaming allowances, bounded usage, declared gas budgets, exact calldata and argument predicates, fixed runtime witnesses, redeemer and ERC-1271 requester identities, message and application-claim signing, approval grant and revocation, `transferFrom`, ERC-721, ERC-1155, balance deltas, exact batches, permission-use payment, and ownership transfer.
 
-### 19. Can ERC-8340 encoding machinery be reused safely?
+Which of these have identical enough semantics for early shared types? Which should remain separate profiles or binding-specific features? Delegatecall, wildcard actors, shared quota groups, and portable redelegation remain unresolved and should not be implied by a generic extension mechanism.
 
-Is deterministic CBOR or selective disclosure useful for authorization, or was ERC-8340 shared only as a companion-ERC layering example? **Default:** reuse a proven primitive only after security review and distinct domain separation. Never let descriptive metadata authorize a call, and never let selective disclosure hide a restriction from enforcement or wallet review.
+### 24. When should multichain and alternative actors be introduced?
+
+Passkeys, ERC-1271 actors, modules, and multichain grants need distinct replay, lifecycle, display, and test-vector work. The candidate baseline remains one secp256k1 address actor on one chain.
 
 ## Suggested review order
 
-Chris can unblock the work fastest by answering questions 1–5 and 8 first. A short joint review with Coinbase, MetaMask, Rhinestone/Biconomy, and ZeroDev can then test questions 6–7 and 9–13 against real integration constraints. Only after those answers should the project freeze canonical encoding or start formal ERC prose.
+1. Chris answers questions 1 to 5.
+2. ERC-7715 and ERC-7710 authors answer questions 6 to 11.
+3. Account-framework implementers test questions 12 to 16.
+4. EIP-8141 implementers address questions 17 to 20 as the specification stabilises.
+5. Only then resolve the deferred schema and codec questions.
