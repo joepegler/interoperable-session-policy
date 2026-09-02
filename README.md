@@ -27,7 +27,6 @@ Option 3 is the current evidence-backed preferred direction for implementer disc
 | [`research/STANDARDS-SHAPE.md`](./research/STANDARDS-SHAPE.md) | Four-option comparison, recommendation, compatibility analysis, and proposed discussion sequence. |
 | [`research/FRAMEWORK-COMPARISON.md`](./research/FRAMEWORK-COMPARISON.md) | Behavioural comparison of the selected session and delegation systems. |
 | [`research/POLICY-CAPABILITY-UNION.md`](./research/POLICY-CAPABILITY-UNION.md) | Observed policy union and baseline, extension, implementation-specific, or unresolved classification. |
-| [`research/PROFILE_V0_1.md`](./research/PROFILE_V0_1.md) | Retained first-pass schema sketch for possible post-gate work. Not an accepted profile. |
 | [`research/OPEN_QUESTIONS.md`](./research/OPEN_QUESTIONS.md) | Questions for EIP-8130, ERC-7715, and framework implementers. |
 | [`research/SOURCE_PINS.tsv`](./research/SOURCE_PINS.tsv) | Machine-readable source checkout manifest. |
 | `references/` | Ignored upstream checkouts restored at exact commits. |

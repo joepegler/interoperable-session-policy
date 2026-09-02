@@ -106,8 +106,6 @@ The machine-readable pins are in `research/SOURCE_PINS.tsv`. Upstream worktrees 
 - `research/POLICY-CAPABILITY-UNION.md`: observed union with one classification per capability.
 - `research/OPEN_QUESTIONS.md`: short questions grouped by intended reviewer.
 
-`research/PROFILE_V0_1.md` is retained as provisional post-gate working material. It is not a completed deliverable or an accepted schema.
-
 ## Work sequence and gates
 
 ### Milestone 0: repository and evidence closure

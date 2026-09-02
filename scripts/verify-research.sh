@@ -11,10 +11,8 @@ required_files=(
   research/SOURCES.md
   research/FINDINGS.md
   research/STANDARDS-SHAPE.md
-  research/COMPARISON.md
   research/FRAMEWORK-COMPARISON.md
   research/POLICY-CAPABILITY-UNION.md
-  research/PROFILE_V0_1.md
   research/OPEN_QUESTIONS.md
   research/SOURCE_PINS.tsv
 )
